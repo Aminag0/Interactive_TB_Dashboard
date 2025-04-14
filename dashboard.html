@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        header {
+            background-color: #4a7c83;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 24px;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 250px 1fr; /* Sidebar (250px) and Main Dashboard */
+            height: 100vh;
+        }
+
+        .sidebar {
+            background-color: #f4f4f4;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        .sidebar h2 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .sidebar button {
+            display: block;
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 10px;
+            font-size: 16px;
+            background-color: #0056b3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .sidebar button:hover {
+            background-color: #003f8a;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* 2 columns */
+            grid-auto-rows: auto; /* Automatic row height */
+            gap: 20px;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Visualization sizes */
+        .timeline {
+            grid-column: span 2; /* Spans full width of both columns */
+            height: 550px;
+        }
+
+        .force-directed,
+        .mapchart {
+            height: 1000px; /* Consistent height for these two */
+        }
+
+        .sunburst {
+            height: 700px;
+            width: 100%; /* Decrease width for Sunburst */
+        }
+
+        .treemap {
+          height: 700px;
+
+            width:100%; /* Adjust Treemap to fit alongside Sunburst */
+        }
+
+        /* Single visualization container */
+        .viz-container {
+            display: none; /* Initially hidden */
+            height: calc(100vh - 20px); /* Full height minus padding */
+            overflow-y: auto;
+        }
+
+        .viz-container.active {
+            display: block; /* Show only the active visualization */
+        }
+
+        /* Responsive adjustments */
+        @media (min-width: 1200px) {
+            .dashboard {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        Interactive Data Visualization Dashboard
+    </header>
+
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <h2>Visualizations</h2>
+            <button onclick="showViz('timeline')">Timeline</button>
+            <button onclick="showViz('force-directed')">Force-Directed Graph</button>
+            <button onclick="showViz('mapchart')">Mapchart</button>
+            <button onclick="showViz('sunburst')">Sunburst</button>
+            <button onclick="showViz('treemap')">Treemap</button>
+            <button onclick="showDashboard()">Show Full Dashboard</button>
+        </aside>
+
+        <!-- Dashboard Grid -->
+        <main class="dashboard">
+            <iframe src="timeline.html" class="timeline"></iframe>
+            <iframe src="force_directed.html" class="force-directed"></iframe>
+            <iframe src="mapchart.html" class="mapchart"></iframe>
+            <iframe src="sunburst.html" class="sunburst"></iframe>
+            <iframe src="treemap.html" class="treemap"></iframe>
+        </main>
+
+        <!-- Single Visualization Container -->
+        <div id="viz-container" class="viz-container">
+            <iframe id="single-viz" src="" frameborder="0"></iframe>
+        </div>
+    </div>
+
+    <script>
+        // Function to show a specific visualization in single-view mode
+        function showViz(viz) {
+            const vizContainer = document.getElementById('viz-container');
+            const singleViz = document.getElementById('single-viz');
+            const dashboard = document.querySelector('.dashboard');
+
+            // Map visualization IDs to file names
+            const vizMap = {
+                'timeline': 'timeline.html',
+                'force-directed': 'force_directed.html',
+                'mapchart': 'mapchart.html',
+                'sunburst': 'sunburst.html',
+                'treemap': 'treemap.html'
+            };
+
+            // Show the single visualization container
+            vizContainer.classList.add('active');
+            dashboard.style.display = 'none'; // Hide the main dashboard
+            singleViz.src = vizMap[viz];
+        }
+
+        // Function to go back to the full dashboard view
+        function showDashboard() {
+            const vizContainer = document.getElementById('viz-container');
+            const dashboard = document.querySelector('.dashboard');
+            vizContainer.classList.remove('active');
+            dashboard.style.display = 'grid'; // Show the main dashboard
+        }
+    </script>
+</body>
+</html>

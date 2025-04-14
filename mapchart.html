@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvg/dist/browser/canvg.min.js"></script>
+
+  <title>Interactive Map Chart</title>
+  <style>
+    body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #cfd8e0;
+            color: #333;
+        }
+
+    .map {
+      width: 70%;
+height: 900px;
+      background: white;
+      display: inline-block;
+      margin: 0 1%;
+    }
+
+    h1 {
+            text-align: center;
+            color: #14406f;
+        }
+    .tooltip {
+      position: absolute;
+      text-align: left;
+      width: 100%;
+      padding: 8px;
+      font: 12px sans-serif;
+      background: lightsteelblue;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      pointer-events: none;
+    }
+
+    .tabs {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+
+    .tab {
+      margin: 0 5px;
+      padding: 10px 20px;
+      background: #4a7c83;
+      color: white;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+
+    .tab.active {
+      background: #164e57;
+    }
+
+    .map-container {
+      display: none;
+    }
+
+    .map-container.active {
+      display: block;
+      text-align: center;
+    }
+
+    .legend {
+      display: flex;
+      justify-content: center;
+      margin-top: 10px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-right: 15px;
+      font: 12px sans-serif;
+    }
+
+    .legend-color {
+      width: 15px;
+      height: 15px;
+      margin-right: 5px;
+    }
+
+    .filters {
+      display: flex;
+      justify-content: center;
+      margin-top: 10px;
+    }
+
+    .filter-item {
+      margin: 0 10px;
+    }
+
+    .button-container {
+  display: flex;
+  justify-content: center;
+  gap: 15px; /* Use this to control the spacing between buttons */
+  margin-top: 10px;
+}
+
+
+    .button {
+      padding: 10px 20px;
+      background: #4a7c83;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .button:hover {
+      background: #071a2e;
+      transform: translateY(-2px);
+    }
+
+    .label {
+      font: 12px sans-serif;
+      pointer-events: none;
+    }
+    .details-panel {
+            margin: 20px auto;
+            padding: 15px;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            width: 30%;
+            display: none;
+        }
+
+        .details-panel h3 {
+            margin: 0;
+            color: #8fa0b1;
+            text-align: center;
+        }
+    .highlighted {
+      stroke: red;
+      stroke-width: 3px;
+      font-weight: bold;
+    }
+  </style> 
+</head>
+<body>
+  <!-- <h1 style="text-align: center;">TB-Related Data: Alcohol, Tobacco, and Diabetes</h1> -->
+  <div class="tabs">
+    <div class="tab active" data-target="#map-all">All</div>
+    <div class="tab" data-target="#map-tobacco">Tobacco</div>
+    <div class="tab" data-target="#map-alcohol">Alcohol</div>
+    <div class="tab" data-target="#map-diabetes">Diabetes</div>
+  </div>
+  <div class="button-container">
+    <button class="button" id="reset-zoom">Reset Zoom</button>
+    <button class="button" id="clear-highlights">Reset Highlights</button>
+    <button class="button" id="reset-all">Reset All</button>
+    <input type="text" id="search-box" placeholder="Search for a state" style="padding: 5px; width: 200px;">
+    <button class="button" id="search-button">Search</button>
+    <button class="button save-graph-button" data-target="map-all-tobacco">Save Tobacco Map as Image</button>
+    <button class="button save-graph-button" data-target="map-all-alcohol">Save Alcohol Map as Image</button>
+    <button class="button save-graph-button" data-target="map-all-diabetes">Save Diabetes Map as Image</button>
+
+  </div>
+
+
+  <div class="filters">
+    <div class="filter-item">
+      <label for="region-filter">Filter by Region:</label>
+      <select id="region-filter">
+        <option value="none">None</option>
+        <option value="all">All Regions</option>
+        <option value="north">North</option>
+        <option value="south">South</option>
+        <option value="east">East</option>
+        <option value="west">West</option>
+        <option value="central">Central</option>
+        <option value="north east">North East</option>
+      </select>
+    </div>
+  </div>
+  <div class="legend" id="legend"></div>
+    <!-- Individual Maps -->
+    <div id="map-tobacco" class="map-container">
+      <svg id="map-tobacco-svg" class="map"></svg>
+    </div>
+    <div id="map-alcohol" class="map-container">
+      <svg id="map-alcohol-svg" class="map"></svg>
+    </div>
+    <div id="map-diabetes" class="map-container">
+      <svg id="map-diabetes-svg" class="map"></svg>
+    </div>
+ 
+
+    
+  
+  <div id="tooltip" class="tooltip" style="opacity: 0;"></div>
+  
+  <!-- All Tab Maps -->
+  <div id="map-all" class="map-container active">
+    <svg id="map-all-tobacco" class="map"></svg>
+    <svg id="map-all-alcohol" class="map"></svg>
+    <svg id="map-all-diabetes" class="map"></svg>
+  </div>
+   <!-- Details Panel -->
+   <div id="details-panel" class="details-panel">
+    <h3>Node Details</h3>
+    <p id="details-content">Click a node to view details.</p>
+  </div>
+
+  <script>
+    const width = 300;
+    const height = 600;
+
+    const tooltip = d3.select("#tooltip");
+
+    const projection = d3.geoMercator()
+      .center([78.9629, 22.5937])
+      .scale(1000)
+      .translate([width / 2, height / 2]);
+
+    const path = d3.geoPath().projection(projection);
+
+    const datasets = {
+      tobacco: "%_of_tobacco-tb_patients_with_known_tobacco_usage_status,_of_notified)-total",
+      alcohol: "%_of_tb_-_alcohol-tb_patients_with_known_alcohol_usage_status,_of_notified)-total",
+      diabetes: "percentage_of_tb_-_diabetes-tb_patients_with_known_dm_status,__of_notified)-total",
+    };
+    const stateCoordinates = {
+  // North
+  "delhi": [28.6139, 77.2090],
+  "punjab": [31.1471, 75.3412],
+  "haryana": [29.0588, 76.0856],
+  "uttarakhand": [30.0668, 79.0193],
+  "jammu & kashmir": [34.0837, 74.7973],
+  "himachal pradesh": [31.1048, 77.1734],
+  "chandigarh": [30.7333, 76.7794],
+
+  // South
+  "kerala": [10.8505, 76.2711],
+  "karnataka": [15.3173, 75.7139],
+  "tamil nadu": [11.1271, 78.6569],
+  "andhra pradesh": [15.9129, 79.7400],
+  "telangana": [18.1124, 79.0193],
+  "puducherry": [11.9416, 79.8083],
+
+  // East
+  "west bengal": [22.9868, 87.8550],
+  "odisha": [20.9517, 85.0985],
+  "bihar": [25.0961, 85.3131],
+  "jharkhand": [23.6102, 85.2799],
+  "sikkim": [27.5330, 88.5122],
+
+  // West
+  "rajasthan": [27.0238, 74.2179],
+  "gujarat": [22.2587, 71.1924],
+  "maharashtra": [19.7515, 75.7139],
+  "goa": [15.2993, 74.1240],
+  "dadra & nagar haveli and daman & diu": [20.3974, 72.8370],
+
+  // Central
+  "madhya pradesh": [22.9734, 78.6569],
+  "chhattisgarh": [21.2787, 81.8661],
+  "uttar pradesh": [26.8467, 80.9462],
+
+  // Northeast
+  "assam": [26.2006, 92.9376],
+  "meghalaya": [25.4670, 91.3662],
+  "nagaland": [26.1584, 94.5624],
+  "manipur": [24.6637, 93.9063],
+  "tripura": [23.9408, 91.9882],
+  "arunachal pradesh": [28.2180, 94.7278],
+  "mizoram": [23.1645, 92.9376],
+
+  // Union Territories and Other States
+  "ladakh": [34.1526, 77.5770],
+  "andaman & nicobar islands": [11.7401, 92.6586],
+  "lakshadweep": [10.3280, 72.7846]
+};
+
+    const colors = {
+      tobacco: "#ff7f0e",
+      alcohol: "#2ca02c",
+      diabetes: "#1f77b4",
+    };
+    // Define colors for each region
+const regionColors = {
+  north: "#800080", // Purple
+  south: "#ff4500", // Orange Red
+  east: "#ff69b4", // Pink
+  west: "#00ced1", // Dark Turquoise
+  central: "#8b0000", // Dark Red
+  northeast: "#32cd32" // Lime Green
+};
+
+    const zoom = d3.zoom()
+      .scaleExtent([1, 8]) // Allow zoom levels from 1x to 8x
+      .translateExtent([[0, 0], [width, height]]) // Keep zooming within map boundaries
+      .on("zoom", (event) => {
+        const transform = event.transform;
+
+        // Smoothly transform map
+        d3.selectAll(".map g")
+          .attr("transform", transform)
+          .transition()
+          .duration(200)
+          .ease(d3.easeLinear);
+
+        // Adjust pin sizes dynamically for smooth scaling
+        d3.selectAll("circle")
+          .attr("r", function () {
+            const originalRadius = sizeScale(+this.getAttribute("data-size"));
+            return originalRadius / transform.k; // Scale pin size proportionally
+          })
+          .transition()
+          .duration(200)
+          .ease(d3.easeLinear);
+      });
+
+    const sizeScale = d3.scaleLinear().domain([0, 100]).range([3, 15]);
+
+    let activeRegion = null;
+    let activeState = null;
+    function loadMap(mapId, dataKey, color, datasetKey) {
+  const svg = d3.select(`#${mapId}`);
+  const svgContainer = svg.append("g");
+  svg.call(zoom).on("dblclick.zoom", null); // Disable double-click zoom for consistency
+
+  d3.json("india-osm.geojson").then(geoData => {
+    d3.csv("India_Filled_Extended_With_Timestamp.csv").then(data => {
+      let regionFilter = "none"; // Set initial region filter to "none"
+
+      drawMap(svgContainer, geoData, data, regionFilter, dataKey, color, datasetKey);
+
+      // Add event listener for region filter change
+      document.getElementById("region-filter").addEventListener("change", (event) => {
+        regionFilter = event.target.value;
+        drawMap(svgContainer, geoData, data, regionFilter, dataKey, color, datasetKey);
+      });
+    });
+  });
+}
+function drawMap(svgContainer, geoData, data, regionFilter, dataKey, color, datasetKey) {
+  svgContainer.selectAll("*").remove();
+
+  // Draw base map
+  svgContainer.selectAll("path")
+    .data(geoData.features)
+    .join("path")
+    .attr("d", path)
+    .attr("fill", "#e0e0e0")
+    .attr("stroke", "#333")
+    .attr("stroke-width", 0.5);
+
+  const seenStates = new Set();
+
+  // Filter data based on region and eliminate duplicates
+  const filteredData = data.filter(d => {
+    const stateName = d["state/uts"]?.toLowerCase();
+    const matchesRegion = regionFilter === "all" || regionFilter === "none" || d.region?.toLowerCase() === regionFilter.toLowerCase();
+    const isValid = matchesRegion && stateCoordinates[stateName] && +d[dataKey] > 0;
+
+    if (isValid && !seenStates.has(stateName)) {
+      seenStates.add(stateName);
+      return true;
+    }
+    return false;
+  });
+
+// Inside your drawMap function, in the filteredData.forEach loop
+filteredData.forEach(d => {
+  const stateName = d["state/uts"]?.toLowerCase();
+  const [latitude, longitude] = stateCoordinates[stateName];
+  const [x, y] = projection([longitude, latitude]);
+
+  let fillColor = color; // Default color for individual datasets
+
+  // If the region filter is "all", set the color based on the region
+  if (regionFilter === "all") {
+    let region = d.region?.toLowerCase().replace(/\s+/g, ""); // Normalize to remove spaces
+    fillColor = regionColors[region] || "#e0e0e0"; // Use a neutral color if region is not found
+  }
+
+  // Create a circleData object to hold the data you need
+  const circleData = {
+    state: d["state/uts"],
+    region: d.region,
+    value: +d[dataKey],
+    category: datasetKey,
+    timestamp: d.timestamp
+  };
+
+  svgContainer.append("circle")
+    .datum(circleData) // Bind circleData to the circle
+    .attr("cx", x)
+    .attr("cy", y)
+    .attr("r", sizeScale(circleData.value))
+    .attr("fill", fillColor)
+    .attr("visibility", "visible")
+    .on("mouseover", (event, d) => {
+      tooltip.transition().duration(200).style("opacity", 0.9);
+      tooltip.html(
+        `<b>State:</b> ${d.state}<br>
+         <b>Category:</b> ${d.category}<br>
+         <b>TB-Related Percentage:</b> ${d.value}%`
+      )
+        .style("left", (event.pageX + 10) + "px")
+        .style("top", (event.pageY - 20) + "px");
+
+      svgContainer.append("text")
+        .attr("class", "label")
+        .attr("x", x + 10)
+        .attr("y", y - 10)
+        .text(`${d.state}`);
+    })
+    .on("mouseout", () => {
+      tooltip.transition().duration(500).style("opacity", 0);
+      svgContainer.selectAll(".label").remove();
+    })
+    .on("click", function(event, d) {
+      d3.selectAll("circle").classed("highlighted", false);
+      d3.select(this).classed("highlighted", true);
+      showDetails(d); // Pass the data to showDetails
+    });
+});
+
+}
+
+
+  
+    function loadAllMaps() {
+      const svgTobacco = d3.select("#map-all-tobacco").append("g");
+      const svgAlcohol = d3.select("#map-all-alcohol").append("g");
+      const svgDiabetes = d3.select("#map-all-diabetes").append("g");
+
+      // Apply zoom to all maps
+      d3.select("#map-all-tobacco").call(zoom);
+      d3.select("#map-all-alcohol").call(zoom);
+      d3.select("#map-all-diabetes").call(zoom);
+
+      d3.json("india-osm.geojson").then(geoData => {
+        d3.csv("India_Filled_Extended_With_Timestamp.csv").then(data => {
+          function drawAllMaps(regionFilter = "none") {
+            drawMap(svgTobacco, geoData, data, regionFilter, datasets.tobacco, colors.tobacco, "Tobacco");
+            drawMap(svgAlcohol, geoData, data, regionFilter, datasets.alcohol, colors.alcohol, "Alcohol");
+            drawMap(svgDiabetes, geoData, data, regionFilter, datasets.diabetes, colors.diabetes, "Diabetes");
+          }
+
+          drawAllMaps();
+
+          document.getElementById("region-filter").addEventListener("change", (event) => {
+            const region = event.target.value;
+            drawAllMaps(region);
+          });
+        });
+      });
+    }
+
+    function updateLegend(currentTab) {
+      const legend = d3.select("#legend");
+      legend.selectAll(".legend-item").remove();
+
+      if (currentTab === "#map-all") {
+        Object.keys(colors).forEach((key) => {
+          const legendItem = legend.append("div").attr("class", "legend-item");
+
+          // Create the color box
+          legendItem.append("div")
+            .attr("class", "legend-color")
+            .style("background-color", colors[key])
+            .style("cursor", "pointer")
+            .on("click", () => {
+              toggleCategoryVisibility(key);
+            });
+
+          legendItem.append("span")
+            .text(key.charAt(0).toUpperCase() + key.slice(1))
+            .style("cursor", "pointer")
+            .on("click", () => {
+              toggleCategoryVisibility(key);
+            });
+
+        });
+      } else {
+        const datasetKey = currentTab.replace("#map-", "");
+        const legendItem = legend.append("div").attr("class", "legend-item");
+
+        legendItem.append("div")
+          .attr("class", "legend-color")
+          .style("background-color", colors[datasetKey])
+          .style("cursor", "pointer")
+          .on("click", () => {
+            toggleCategoryVisibility(datasetKey);
+          });
+
+        legendItem.append("span")
+          .text(datasetKey.charAt(0).toUpperCase() + datasetKey.slice(1))
+          .style("cursor", "pointer")
+          .on("click", () => {
+            toggleCategoryVisibility(datasetKey);
+          });
+      }
+    }
+
+    function toggleCategoryVisibility(categoryKey) {
+      const circles = d3.selectAll(`circle[data-category='${categoryKey}']`);
+
+      circles.each(function () {
+        const currentVisibility = d3.select(this).attr("visibility");
+        d3.select(this).attr("visibility", currentVisibility === "hidden" ? "visible" : "hidden");
+      });
+    }
+
+    // Load individual maps for "Tobacco," "Alcohol," and "Diabetes"
+    loadMap("map-tobacco-svg", datasets.tobacco, colors.tobacco, "Tobacco");
+    loadMap("map-alcohol-svg", datasets.alcohol, colors.alcohol, "Alcohol");
+    loadMap("map-diabetes-svg", datasets.diabetes, colors.diabetes, "Diabetes");
+
+    // Load all maps together for the "All" tab
+    loadAllMaps();
+
+    // Tab functionality
+    document.querySelectorAll(".tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+
+        document.querySelectorAll(".map-container").forEach(container => container.classList.remove("active"));
+        const targetMap = tab.dataset.target;
+        document.querySelector(targetMap).classList.add("active");
+        updateLegend(targetMap);
+      });
+    });
+
+    // Clear highlights functionality
+    document.getElementById("clear-highlights").addEventListener("click", () => {
+      d3.selectAll("circle").classed("highlighted", false);
+      activeState = null;
+  d3.select("#details-panel").style("display", "none"); // Hide the details panel
+    });
+
+    // Initialize legend for the "All" tab by default
+    updateLegend("#map-all");
+
+    // Reset zoom functionality
+    document.getElementById("reset-zoom").addEventListener("click", () => {
+      d3.selectAll(".map")
+        .transition()
+        .duration(850) // Smooth transition for reset
+        .call(zoom.transform, d3.zoomIdentity); // Reset zoom to the initial state
+    });
+    function saveGraphAsImage(targetId) {
+  const svgElement = document.getElementById(targetId); // Get the SVG element
+  if (!svgElement) {
+    console.error(`SVG element with ID "${targetId}" not found.`);
+    return;
+  }
+
+  // Create a canvas element
+  const canvas = document.createElement("canvas");
+  const boundingRect = svgElement.getBoundingClientRect();
+  canvas.width = boundingRect.width;
+  canvas.height = boundingRect.height;
+
+  // Render the SVG onto the canvas using Canvg
+  const ctx = canvas.getContext("2d");
+  const svgData = new XMLSerializer().serializeToString(svgElement);
+
+  if (window.canvg) {
+    window.canvg(canvas, svgData); // Render the SVG to the canvas
+
+    // Convert the canvas to an image
+    const imgData = canvas.toDataURL("image/png");
+
+    // Create a download link
+    const downloadLink = document.createElement("a");
+    downloadLink.href = imgData;
+    downloadLink.download = `${targetId}-map.png`; // File name for the image
+    downloadLink.click(); // Trigger the download
+  } else {
+    console.error("Canvg is not loaded. Ensure the script is properly linked.");
+  }
+}
+
+// Attach event listener to the button
+document.querySelectorAll(".save-graph-button").forEach(button => {
+  button.addEventListener("click", function () {
+    const targetId = this.getAttribute("data-target"); // Get the target graph ID from the data attribute
+    saveGraphAsImage(targetId);
+  });
+});
+function highlightSearchedState(state) {
+  let found = false;
+
+  d3.selectAll(".map g").each(function() {
+    const map = d3.select(this);
+
+    // Remove previous highlights
+    map.selectAll("circle")
+      .classed("highlighted", false)
+      .attr("stroke", null)
+      .attr("stroke-width", null);
+
+    // Find the matching state
+    const matchingNodes = map.selectAll("circle")
+      .filter(function() {
+        return d3.select(this).attr("data-state").toLowerCase() === state.toLowerCase();
+      });
+
+    if (!matchingNodes.empty()) {
+      found = true;
+      matchingNodes
+        .classed("highlighted", true)
+        .attr("stroke", "red")
+        .attr("stroke-width", 3);
+    }
+  });
+
+  if (!found) {
+    alert("No matching state found in the maps.");
+  }
+}
+
+// Event listener for the search button
+document.getElementById("search-button").addEventListener("click", () => {
+  const searchQuery = document.getElementById("search-box").value.trim();
+  if (searchQuery) {
+    highlightSearchedState(searchQuery);
+  }
+});
+function resetAll() {
+  // Reset zoom for all maps
+  d3.selectAll(".map")
+    .transition()
+    .duration(850) // Smooth transition for reset
+    .call(zoom.transform, d3.zoomIdentity); // Reset zoom to the initial state
+
+  // Reset filters to default
+  document.getElementById("region-filter").value = "none";
+  d3.select("#details-panel").style("display", "none");
+
+
+  // Remove all highlights (both normal and search highlights)
+  d3.selectAll("circle").classed("highlighted", false)
+    .attr("stroke", null)
+    .attr("stroke-width", null);
+
+  // Clear the search box
+  document.getElementById("search-box").value = "";
+
+  // Reset the region filter maps
+  const regionFilter = "all";
+  loadAllMaps(); // Reload all maps to apply the filter
+
+  // Update the legend back to the "All" tab
+  updateLegend("#map-all");
+}
+
+// Event listener for the reset all button
+document.getElementById("reset-all").addEventListener("click", resetAll);
+
+// Show Details Function
+function showDetails(d) {
+  const detailsPanel = d3.select("#details-panel");
+  const detailsContent = d3.select("#details-content");
+
+  // Display the details panel
+  detailsPanel.style("display", "block");
+
+  // Update the content with state details
+  detailsContent.html(`
+    <b>State:</b> ${d["state"]}<br>
+    <b>Category:</b> ${d.category}<br>
+    <b>TB-Related Percentage:</b> ${+d.value}%<br>
+    <b>Region:</b> ${d.region || "N/A"}<br>
+    <b>Timestamp:</b> ${d.timestamp || "N/A"}
+  `);
+}
+
+    
+  </script>
+</body>
+</html>

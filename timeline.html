@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Timeline with Filters and Animation</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvg/dist/browser/canvg.min.js"></script>
+  
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #cfd8e0;
+        }
+
+        h1 {
+            text-align: center;
+            color: #14406f;
+        }
+
+        .controls-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            margin: 20px;
+        }
+
+        .filter-button {
+            margin: 5px 10px;
+            padding: 10px 20px;
+            background-color: #4a7c83;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .filter-button.active {
+            background-color: #164e57;
+        }
+
+        .filter-button:hover {
+            background-color: #071a2e;
+            transform: translateY(-2px);
+        }
+
+        #slider-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px;
+        }
+
+        #slider-container input[type="range"] {
+            margin: 0 10px;
+            width: 300px;
+        }
+
+        #play-button,
+        #reset-button {
+            margin: 5px 10px;
+            padding: 10px 20px;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #play-button {
+            background-color:#4a7c83;
+        }
+
+        #play-button:hover {
+            background-color:#071a2e;
+            transform: translateY(-2px);
+        }
+
+        #reset-button {
+            background-color: #4a7c83;
+        }
+
+        #reset-button:hover {
+            background-color: #071a2e;
+            transform: translateY(-2px);
+        }
+
+        #chart-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 10px;
+        }
+
+        #chart {
+            background-color: white;
+            border: 1px solid #232e4b;
+            border-radius: 8px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 5px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .details-panel {
+            margin: 20px auto;
+            padding: 15px;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            width: 30%;
+            display: none;
+        }
+
+        .details-panel h3 {
+            margin: 0;
+            color: #8fa0b1;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- <h1>Interactive Timeline with Filters and Animation</h1>-->
+     
+
+    <div class="controls-container">
+        <button class="filter-button" data-metric="DiabetesPatients">Diabetes</button>
+        <button class="filter-button" data-metric="TobaccoUsers">Tobacco</button>
+        <button class="filter-button" data-metric="AlcoholUsers">Alcohol</button>
+        <button id="region-button" class="filter-button">Filter by Region</button>
+    </div>
+
+    <div id="search-container" style="margin: 20px; text-align: center;">
+        <input type="text" id="state-search" placeholder="Search for a state" style="padding: 5px; width: 200px;">
+        <button id="search-btn" style="padding: 5px; margin-left: 10px;">Search</button>
+    </div>
+
+    <div id="slider-container">
+        <label for="date-slider">Date:</label>
+        <input type="range" id="date-slider" min="0" max="100" value="100">
+        <button id="play-button">Play</button>
+        <label for="speed-control">Animation Speed:</label>
+        <input type="range" id="speed-control" min="50" max="1000" value="200">
+        <button id="reset-button">Reset</button>
+        <button id="reset-zoom">Reset Zoom</button>
+
+    </div>
+    <div id="legend-container"></div>
+
+    <div id="chart-container">
+        <div id="chart"></div>
+        <button id="save-graph" style="padding: 5px; margin-left: 10px;">Save Graph as Image</button>
+    </div>
+
+    <div id="details-panel" class="details-panel"></div>
+
+
+    <script>
+      const margin = { top: 20, right: 20, bottom: 40, left: 40 };
+        const width = 600 - margin.left - margin.right; // Reduced width
+        const height = 300 - margin.top - margin.bottom; // Reduced height
+
+// Add an event listener for the search button
+d3.select("#search-btn").on("click", () => {
+    const searchQuery = d3.select("#state-search").property("value").trim();
+
+    if (!searchQuery) return;
+
+    // Highlight the matching state across all visible nodes
+    svg.selectAll(".circle")
+        .style("stroke", d => d["state/uts"] === searchQuery ? "red" : "#fff")
+        .style("stroke-width", d => d["state/uts"] === searchQuery ? "3px" : "0.1px");
+
+    // Display details for the first matched state
+    const matchedNode = data.find(d => d["state/uts"] === searchQuery);
+    if (matchedNode) {
+        showDetails(matchedNode);
+    } else {
+        detailsPanel.style("display", "none");
+        alert(`State "${searchQuery}" not found.`);
+    }
+});
+
+        document.addEventListener("DOMContentLoaded", function () {
+            console.log("DOM fully loaded and parsed");
+            const speedControl = d3.select("#speed-control");
+            speedControl.property("value", speedControl.attr("min")); // Set to the minimum value
+            console.log(`Speed control initialized to ${speedControl.property("value")} ms per update.`);
+            const regionButton = document.querySelector("#region-button");
+            if (!regionButton) {
+                console.error("Region button not found!");
+            } else {
+                console.log("Region button found."); // This should already appear
+            }
+            console.log("Before adding event listener to region button");
+
+            regionButton.addEventListener("click", function () {
+                createLegend();
+
+                console.log("Region button clicked!"); // Should appear when clicked
+                colorByRegion(); // Call the function
+            });
+            console.log("After adding event listener to region button");
+
+
+        });
+        const regionMapping = {
+                North: ["Delhi", "Punjab", "Haryana", "Uttarakhand", "Jammu & Kashmir", "Himachal Pradesh", "Chandigarh"],
+                South: ["Kerala", "Karnataka", "Tamil Nadu", "Andhra Pradesh", "Telangana", "Puducherry"],
+                East: ["West Bengal", "Odisha", "Bihar", "Jharkhand", "Sikkim"],
+                West: ["Rajasthan", "Gujarat", "Maharashtra", "Goa", "Dadra & Nagar Haveli and Daman & Diu"],
+                Central: ["Madhya Pradesh", "Chhattisgarh", "Uttar Pradesh"],
+                Northeast: ["Assam", "Meghalaya", "Nagaland", "Manipur", "Tripura", "Arunachal Pradesh", "Mizoram"]
+            };
+
+            const regionColors = {
+                North: "#F28E8E",
+                South: "#A4D4F2",
+                East: "#A9F2B3",
+                West: "#FFD580",
+                Central: "#D5A6FF",
+                Northeast: "#FFA07A"
+            };
+
+        const color = d3.scaleOrdinal(d3.schemeCategory10);
+      
+        const tooltip = d3.select("body").append("div").attr("class", "tooltip");
+
+// Main SVG container
+const svg = d3.select("#chart")
+    .append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom);
+
+// Group for the entire chart (axes + data)
+const chartGroup = svg.append("g")
+    .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+// Define zoom behavior
+const zoom = d3.zoom()
+    .scaleExtent([1, 10]) // Allow zoom between 1x and 10x
+    .translateExtent([[0, 0], [width + margin.left, height + margin.top]]) // Restrict panning within bounds
+    .on("zoom", (event) => {
+        chartGroup.attr("transform", event.transform); // Apply zoom/pan transformations
+    });
+
+// Attach zoom behavior to the SVG
+svg.call(zoom);
+
+
+        let animationInterval;
+        let isPlaying = false;
+
+        const detailsPanel = d3.select("#details-panel");
+
+        d3.csv("India_Filled_Extended_With_Timestamp.csv").then(data => {
+            const parseTime = d3.timeParse("%Y-%m-%d");
+            data.forEach(d => {
+    d.timestamp = parseTime(d.timestamp);
+    d.DiabetesPatients = +d["no_of_tb_-_diabetes-tb_patients_with_known_dm_status,_of_notified)-public"];
+    d.TobaccoUsers = +d["no_of_tobacco_users_identified_amongst_screened,of_those_with_known_tobacco_usage_status)-total"];
+    d.AlcoholUsers = +d["no_of_tb_-_alcohol-alcohol_users_identified_amongst_screened,__of_those_with_known_alcohol_usage_status)-total"];
+    
+    // Assign region during data preprocessing
+    d.region = Object.keys(regionMapping).find(region =>
+        regionMapping[region].includes(d["state/uts"])
+    );
+});
+
+// Define scales
+const x = d3.scaleTime().domain(d3.extent(data, d => d.timestamp)).range([0, width]);
+const y = d3.scaleLinear().range([height, 0]);
+
+// Append X-axis to the chartGroup
+chartGroup.append("g")
+    .attr("class", "x-axis")
+    .attr("transform", `translate(0, ${height})`)
+    .call(d3.axisBottom(x).ticks(12).tickFormat(d3.timeFormat("%b %Y")));
+
+// Append Y-axis to the chartGroup
+chartGroup.append("g")
+    .attr("class", "y-axis")
+    .call(d3.axisLeft(y));
+
+
+            chartGroup.append("g")
+    .attr("class", "grid")
+    .call(
+        d3.axisLeft(y)
+            .tickSize(-width)
+            .tickFormat("") // Removes text labels
+    )
+    .selectAll("line")
+    .style("stroke", "#e0e0e0") // Lighter gray color
+    .style("stroke-width", 1) // Thin stroke
+    .style("opacity", 0.7); // Semi-transparent
+    // Reset zoom to the default view
+d3.select("#reset-zoom").on("click", () => {
+    svg.transition().duration(750).call(
+        zoom.transform, // Reset zoom transformation
+        d3.zoomIdentity // Default zoom state
+    );
+});
+
+
+            const buttons = d3.selectAll(".filter-button");
+            buttons.on("click", function () {
+                const metric = d3.select(this).attr("data-metric");
+                buttons.classed("active", false);
+                d3.select(this).classed("active", true);
+                updateChart(metric);
+            });
+
+            const slider = d3.select("#date-slider")
+                .attr("min", x.domain()[0].getTime())
+                .attr("max", x.domain()[1].getTime())
+                .on("input", function () {
+                    updateChart(buttons.filter(".active").attr("data-metric"), new Date(+this.value));
+                });
+
+            d3.select("#play-button").on("click", function () {
+                if (isPlaying) {
+                    clearInterval(animationInterval);
+                    d3.select(this).text("Play");
+                } else {
+                    const speed = +d3.select("#speed-control").property("value");
+                    animationInterval = setInterval(() => {
+                        const currentValue = +slider.property("value");
+                        const stepSize = 7 * 24 * 60 * 60 * 1000;
+                        const newValue = currentValue + stepSize;
+
+                        if (newValue > +slider.attr("max")) {
+                            clearInterval(animationInterval);
+                            d3.select("#play-button").text("Play");
+                            isPlaying = false;
+                        } else {
+                            slider.property("value", newValue);
+                            updateChart(buttons.filter(".active").attr("data-metric"), new Date(newValue));
+                        }
+                    }, 1050 - speed);
+                    d3.select(this).text("Pause");
+                }
+                isPlaying = !isPlaying;
+            });
+            d3.select("#save-graph").on("click", () => {
+    saveGraphAsImage("chart"); // Pass the ID of the chart container
+});
+
+            d3.select("#speed-control").on("input", function () {
+                const speed = +d3.select("#speed-control").property("value");
+                if (isPlaying) {
+                    clearInterval(animationInterval);
+                    animationInterval = setInterval(() => {
+                        const currentValue = +slider.property("value");
+                        const stepSize = 7 * 24 * 60 * 60 * 1000;
+                        const newValue = currentValue + stepSize;
+
+                        if (newValue > +slider.attr("max")) {
+                            clearInterval(animationInterval);
+                            d3.select("#play-button").text("Play");
+                            isPlaying = false;
+                        } else {
+                            slider.property("value", newValue);
+                            updateChart(buttons.filter(".active").attr("data-metric"), new Date(newValue));
+                        }
+                    }, 1050 - speed);
+                }
+            });
+
+            function updateChart(metric, filterDate) {
+                if (d3.select("#region-button").classed("active")) {
+        console.log("Skipping updateChart due to Region Filter.");
+        return;
+    }
+                const filteredData = data.filter(d => d[metric] > 0 && (!filterDate || d.timestamp <= filterDate));
+                if (metric === 'DiabetesPatients') {
+                    y.domain([0, 500000]);
+                } else if (metric === 'TobaccoUsers') {
+                    y.domain([0, 250000]);
+                } else if (metric === 'AlcoholUsers') {
+                    y.domain([0, 150000]);
+                }
+
+                svg.select(".y-axis").transition().duration(1000).call(d3.axisLeft(y).ticks(10));
+
+                const circles = svg.selectAll(".circle")
+                    .data(filteredData, d => d.timestamp);
+
+                circles.exit()
+                    .transition().duration(500).attr("r", 0).remove();
+
+
+    chartGroup.selectAll(".circle")
+
+                .data(data)
+    .enter().append("circle")
+                    .attr("class", "circle")
+                    .attr("cx", d => x(d.timestamp))
+                    .attr("cy", d => y(d[metric]))
+                    .attr("r", 0)
+                    .attr("fill", color(metric))
+                    .merge(circles)
+                    .transition().duration(1000)
+                    .attr("r", 4)
+                    .attr("cy", d => y(d[metric]))
+                    .attr("cx", d => x(d.timestamp))
+                    .attr("fill", color(metric))
+                    .selection()
+                    .on("mouseover", (event, d) => {
+                        tooltip.style("opacity", 1)
+                            .html(`
+                                <strong>State/UT:</strong> ${d["state/uts"] || 'N/A'}<br>
+                                <strong>Region:</strong> ${d.region || 'N/A'}<br>
+                                <strong>Diabetes Patients:</strong> ${d["no_of_tb_-_diabetes-tb_patients_with_known_dm_status,_of_notified)-public"] ? d["no_of_tb_-_diabetes-tb_patients_with_known_dm_status,_of_notified)-public"].toLocaleString() : 'N/A'}<br>
+                                <strong>Tobacco Users:</strong> ${d["no_of_tobacco_users_identified_amongst_screened,of_those_with_known_tobacco_usage_status)-total"] ? d["no_of_tobacco_users_identified_amongst_screened,of_those_with_known_tobacco_usage_status)-total"].toLocaleString() : 'N/A'}<br>
+                                <strong>Alcohol Users:</strong> ${d["no_of_tb_-_alcohol-alcohol_users_identified_amongst_screened,__of_those_with_known_alcohol_usage_status)-total"] ? d["no_of_tb_-_alcohol-alcohol_users_identified_amongst_screened,__of_those_with_known_alcohol_usage_status)-total"].toLocaleString() : 'N/A'}<br>
+                                <strong>Timestamp:</strong> ${d.timestamp ? d3.timeFormat("%B %Y")(d.timestamp) : 'N/A'}<br>
+                            `)
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY + 10) + "px");
+                    })
+                    .on("mouseout", () => {
+                        tooltip.style("opacity", 0);
+                    })
+                    .on("click", function (event, d) {
+                        
+                        d3.select(this)
+                            .classed("highlighted", true)
+                            .style("stroke", "red")
+                            .style("stroke-width", "3px");
+
+                        showDetails(d);
+                    });
+            }
+
+        });
+
+        function showDetails(d) {
+            detailsPanel.style("display", "block");
+            detailsPanel.html(`
+                <h3>Node Details</h3>
+                <p><strong>State/UT:</strong> ${d["state/uts"] || 'N/A'}</p>
+                <p><strong>Region:</strong> ${d.region || 'N/A'}</p>
+                <p><strong>Diabetes Patients:</strong> ${d["no_of_tb_-_diabetes-tb_patients_with_known_dm_status,_of_notified)-public"] ? d["no_of_tb_-_diabetes-tb_patients_with_known_dm_status,_of_notified)-public"].toLocaleString() : 'N/A'}</p>
+                <p><strong>Tobacco Users:</strong> ${d["no_of_tobacco_users_identified_amongst_screened,of_those_with_known_tobacco_usage_status)-total"] ? d["no_of_tobacco_users_identified_amongst_screened,of_those_with_known_tobacco_usage_status)-total"].toLocaleString() : 'N/A'}</p>
+                <p><strong>Alcohol Users:</strong> ${d["no_of_tb_-_alcohol-alcohol_users_identified_amongst_screened,__of_those_with_known_alcohol_usage_status)-total"] ? d["no_of_tb_-_alcohol-alcohol_users_identified_amongst_screened,__of_those_with_known_alcohol_usage_status)-total"].toLocaleString() : 'N/A'}</p>
+                <p><strong>Timestamp:</strong> ${d.timestamp ? d3.timeFormat("%B %Y")(d.timestamp) : 'N/A'}</p>
+            `);
+        }
+        function colorByRegion() {
+            // Select existing circles and update their fill based on the region
+            svg.selectAll(".circle")
+                .transition()
+                .duration(500)
+                .attr("fill", d => {
+                    console.log(d.region); // Debug: Check region assignment
+                    return regionColors[d.region] || "#ccc"; // Default color for undefined regions
+                })
+                .attr("opacity", 1); // Ensure visibility
+        }
+        function createLegend() {
+    // Select the legend container and clear any existing content
+    const legendContainer = d3.select("#legend-container");
+    legendContainer.html(""); // Clear previous legend
+
+    // Create a legend for each region and its color
+    const legend = legendContainer.append("div")
+        .attr("class", "legend")
+        .style("display", "flex")
+        .style("flex-wrap", "wrap")
+        .style("justify-content", "center");
+
+    Object.keys(regionColors).forEach(region => {
+        const legendItem = legend.append("div")
+            .style("display", "flex")
+            .style("align-items", "center")
+            .style("margin", "5px 10px");
+
+        // Add a color square
+        legendItem.append("div")
+            .style("width", "20px")
+            .style("height", "20px")
+            .style("background-color", regionColors[region])
+            .style("margin-right", "10px")
+            .style("border", "1px solid #000");
+
+        // Add the region name
+        legendItem.append("span")
+            .text(region)
+            .style("font-size", "14px")
+            .style("font-family", "Arial, sans-serif");
+    });
+}
+
+
+
+        d3.select("#reset-button").on("click", function () {
+    // Stop the animation if it's playing
+    clearInterval(animationInterval);
+    isPlaying = false;
+
+    // Reset play button text
+    d3.select("#play-button").text("Play");
+
+    // Reset the date slider to its minimum value
+    const slider = d3.select("#date-slider");
+    slider.property("value", slider.attr("min"));
+
+    // Reset the speed slider to its minimum value
+    const speedControl = d3.select("#speed-control");
+    speedControl.property("value", speedControl.attr("min"));
+
+    // Remove highlights from all nodes
+    svg.selectAll(".circle")
+        .classed("highlighted", false) // Remove the 'highlighted' class
+        .style("stroke", "#fff")      // Reset the stroke to default black
+        .style("stroke-width", "0.1px"); // Reset the stroke width
+
+    // Hide the details panel
+    detailsPanel.style("display", "none");
+
+    // Reset the chart to the initial state
+
+    console.log("Reset to initial state: date slider, speed, node highlights, and animation stopped.");
+});
+function saveGraphAsImage(targetId) {
+    const container = document.getElementById(targetId); // Get the container div
+    if (!container) {
+        console.error(`Container with ID "${targetId}" not found.`);
+        return;
+    }
+
+    const svgElement = container.querySelector("svg"); // Get the SVG inside the container
+    if (!svgElement) {
+        console.error(`SVG element not found inside container with ID "${targetId}".`);
+        return;
+    }
+
+    console.log("SVG Element:", svgElement);
+
+    const svgString = new XMLSerializer().serializeToString(svgElement);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+
+    const img = new Image();
+    img.onload = () => {
+        canvas.width = svgElement.clientWidth || 960; // Use default if dimensions are not set
+        canvas.height = svgElement.clientHeight || 500; // Use default if dimensions are not set
+        ctx.drawImage(img, 0, 0);
+
+        URL.revokeObjectURL(url);
+
+        // Create a download link
+        const link = document.createElement("a");
+        link.download = "graph.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+    };
+    img.src = url;
+}
+
+
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Sunburst Chart with Enhanced Features</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvg/dist/browser/canvg.min.js"></script>
+  
+  <style>
+    /* CSS Styles */
+    body {
+      font-family: 'Arial', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 20px;
+      background: #cfd8e0;
+    }
+    h1 {
+            text-align: center;
+            color: #14406f;
+        }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 800px;
+    }
+
+    .tooltip {
+      position: absolute;
+      text-align: center;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      border-radius: 5px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .sunburst path {
+      stroke: #b28282;
+      stroke-width: 1px;
+    }
+
+    .sunburst path.highlighted {
+      stroke: black;
+      stroke-width: 3px;
+    }
+
+    .details-panel {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background: #f9f9f9;
+      display: none;
+      text-align: center;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      margin-top: 20px;
+      justify-content: center;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 5px 10px;
+      cursor: pointer;
+    }
+
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      margin-right: 5px;
+    }
+
+    #back-button {
+      padding: 10px 20px;
+      background-color: #4a7c83;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      display: none;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+
+    #back-button:hover {
+      background-color: #071a2e;
+    }
+
+    .filter-container {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .filter-container>div {
+      margin-right: 20px;
+      margin-bottom: 10px;
+    }
+
+    button {
+      background-color: #4a7c83;
+      border: none;
+      color: white;
+      padding: 8px 16px;
+      text-align: center;
+      text-decoration: none;
+      font-size: 14px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+      box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    button:hover {
+      background-color: #071a2e;
+      transform: translateY(-2px);
+    }
+   
+    button:active {
+      background-color: #164e57;
+      transform: translateY(1px);
+      box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    #search-box {
+      padding: 8px;
+      border: 2px solid #3e5e80;
+      border-radius: 5px;
+      margin-right: 5px;
+    }
+
+    select {
+      padding: 8px;
+      border: 2px solid #FFC107;
+      border-radius: 5px;
+      margin-right: 10px;
+    }
+
+    .breadcrumb-container {
+      margin: 10px 0;
+      padding: 5px;
+      font-size: 14px;
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+
+    .breadcrumb-container span {
+      cursor: pointer;
+      color: #253e59;
+      text-decoration: underline;
+    }
+
+    .breadcrumb-container span:hover {
+      color: #0056b3;
+    }
+
+    .breadcrumb-separator {
+      color: #555;
+    }
+    .details-panel {
+            margin: 20px auto;
+            padding: 15px;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            width: 30%;
+            display: none;
+        }
+
+        .details-panel h3 {
+            margin: 0;
+            color: #8fa0b1;
+            text-align: center;
+        }
+    /* Responsive Design */
+    @media (max-width: 600px) {
+      svg {
+        width: 100%; 
+        height: 100%;
+      }
+
+      .filter-container {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .filter-container>div {
+        margin-right: 0;
+      }
+
+      .buttons-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .buttons-row button {
+        margin: 5px;
+      }
+    }
+  </style> 
+
+</head>
+
+<body>
+  <div class="container">
+    <!-- <h1>Sunburst Chart for Hierarchical Data</h1> -->
+
+    <div class="buttons-row">
+      <button id="zoom-in">Zoom In</button>
+      <button id="zoom-out">Zoom Out</button>
+      <button id="reset-zoom">Reset Zoom</button>
+      <button id="reset-highlight">Reset Highlight</button>
+      <button id="reset-filters">Reset Filters</button>
+      <button id="save-image">Save as Image</button>
+      <button id="back-button">Back</button>
+    </div>
+
+    <div class="filter-container">
+      <div>
+        <strong>Relationship Type:</strong>
+        <select id="relationship-filter" multiple>
+          <option value="all" selected>All</option>
+          <option value="Diabetic TB Patients">Diabetic TB Patients</option>
+          <option value="Tobacco Affected TB Patients">Tobacco Affected TB Patients</option>
+          <option value="Alcohol Affected TB Patients">Alcohol Affected TB Patients</option>
+        </select>
+      </div>
+
+      <div>
+        <strong>Location:</strong>
+        <select id="location-filter" multiple>
+          <option value="all" selected>All</option>
+        </select>
+      </div>
+
+      <div>
+        <strong>Timestamp:</strong>
+        <input type="date" id="timestamp-filter">
+      </div>
+
+      <div>
+        <strong>Metric:</strong>
+        <select id="metric-filter">
+          <option value="value">Value</option>
+        </select>
+      </div>
+
+      <div>
+        <strong>Sort by:</strong>
+        <select id="sort-by">
+          <option value="name">Name</option>
+          <option value="value">Value</option>
+        </select>
+        <button id="sort-ascending">Ascending</button>
+        <button id="sort-descending">Descending</button>
+      </div>
+
+      <div>
+        <strong>Search:</strong> <input type="text" id="search-box">
+        <button id="search-button">Search</button>
+      </div>
+    </div>
+    <div class="breadcrumb-container" id="breadcrumb"></div>
+    <div id="chart"></div>
+    <div id="legend" class="legend"></div>
+     <!-- Details Panel -->
+     <div id="details-panel" class="details-panel">
+      <h3>Node Details</h3>
+      <p id="details-content">Click a node to view details.</p>
+    </div>
+  
+
+  <script>
+    const width = 600;
+    const height = 600;
+    const radius = width / 2;
+
+    const color = d3.scaleOrdinal(d3.schemeCategory10);
+
+    const format = d3.format(",d");
+
+    const svg = d3.select("#chart")
+  .append("svg")
+  .attr("width", width)
+  .attr("height", height)
+  .attr("viewBox", `${-width / 2} ${-height / 2} ${width} ${height}`);
+
+    const tooltip = d3.select("body").append("div")
+      .attr("class", "tooltip");
+      const detailsPanel = d3.select("#details-panel");
+      const detailsContent = d3.select("#details-content");
+
+
+    let root;
+
+    // Define the partition layout
+    const partition = data => {
+      const root = d3.hierarchy(data)
+        .sum(d => d.value)
+        .sort((a, b) => b.value - a.value);
+      return d3.partition()
+        .size([2 * Math.PI, root.height + 1])
+        (root);
+    }
+
+    // Define the arc generator
+    const arc = d3.arc()
+      .startAngle(d => d.x0)
+      .endAngle(d => d.x1)
+      .padAngle(d => Math.min((d.x1 - d.x0) / 2, 0.005))
+      .padRadius(radius / 2)
+      .innerRadius(d => d.y0 * radius / root.height)
+      .outerRadius(d => Math.max(d.y0 * radius / root.height, d.y1 * radius / root.height - 1));
+
+    let selectedCategories = ["Diabetic TB Patients", "Tobacco Affected TB Patients", "Alcohol Affected TB Patients"];
+    let currentView = null;
+
+    let originalData;
+
+    // Load data and create chart
+    d3.csv("India_Filled_Extended_With_Timestamp.csv").then(data => {
+      originalData = data;
+
+      // Process data into hierarchyData
+      const hierarchyData = buildHierarchyData(data, ["all"]);
+
+      root = partition(hierarchyData);
+      root.each(d => d.current = d);
+
+      const locationFilter = d3.select("#location-filter");
+      const uniqueLocations = Array.from(new Set(data.map(d => d["state/uts"])));
+      uniqueLocations.forEach(location => {
+        locationFilter.append("option").attr("value", location).text(location);
+      });
+
+      // Draw the sunburst
+      const g = svg.append("g");
+
+      let path = g.selectAll("path")
+        .data(root.descendants().filter(d => d.depth))
+        .join("path")
+        .attr("fill", d => {
+          while (d.depth > 1) d = d.parent;
+          return color(d.data.name);
+        })
+        .attr("fill-opacity", d => arcVisible(d.current) ? (d.children ? 0.6 : 0.4) : 0)
+        .attr("d", d => arc(d.current))
+        .on("mouseover", (event, d) => {
+          tooltip.style("opacity", 1)
+            .html(`
+              <strong>${d.ancestors().map(d => d.data.name).reverse().join(" > ")}</strong><br>
+              <strong>Value:</strong> ${format(d.value)}<br>
+              <strong>Percentage:</strong> ${((d.value / root.value) * 100).toFixed(2)}%<br>
+              <strong>Timestamp:</strong> ${d.data.timestamp ? formatDate(d.data.timestamp) : "No Timestamp Available"}
+            `)
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY + 10) + "px");
+        })
+        .on("mouseout", () => {
+          tooltip.style("opacity", 0);
+        })
+        .on("click", (event, d) => {
+          clicked(event, d);
+          showDetails(d); // Show details when clicked
+        });
+
+      // Add labels
+      let label = g.append("g")
+        .attr("pointer-events", "none")
+        .attr("text-anchor", "middle")
+        .style("user-select", "none")
+        .selectAll("text")
+        .data(root.descendants().filter(d => d.depth))
+        .join("text")
+        .attr("dy", "0.35em")
+        .attr("fill-opacity", d => +labelVisible(d.current))
+        .attr("transform", d => labelTransform(d.current))
+        .text(d => d.data.name);
+
+      const parent = g.append("circle")
+        .datum(root)
+        .attr("r", radius / root.height)
+        .attr("fill", "none")
+        .attr("pointer-events", "all")
+        .on("click", clicked);
+
+      // Interactive Legend
+      const uniqueCategories = ["Diabetic TB Patients", "Tobacco Affected TB Patients", "Alcohol Affected TB Patients"];
+      const legend = d3.select("#legend");
+      uniqueCategories.forEach(category => {
+        const legendItem = legend.append("div")
+          .attr("class", "legend-item");
+
+        legendItem.append("div")
+          .attr("class", "legend-color")
+          .style("background-color", color(category));
+
+        legendItem.append("div")
+          .text(category);
+
+        // Add click event to toggle visibility
+        legendItem.on("click", () => {
+          const index = selectedCategories.indexOf(category);
+          if (index > -1) {
+            selectedCategories.splice(index, 1);
+            legendItem.style("opacity", 0.5);
+          } else {
+            selectedCategories.push(category);
+            legendItem.style("opacity", 1);
+          }
+          updateChart();
+        });
+      });
+      d3.select("#save-image").on("click", () => {
+    saveGraphAsImage("chart"); // Pass the ID of the chart container
+});
+      function updateChart() {
+        const relationshipFilterValues = Array.from(d3.select("#relationship-filter").node().selectedOptions).map(option => option.value);
+        const locationFilterValues = Array.from(d3.select("#location-filter").node().selectedOptions).map(option => option.value);
+        const timestampFilterValue = d3.select("#timestamp-filter").property("value");
+        const sortBy = d3.select("#sort-by").property("value");
+
+        const includeAllRelationships = relationshipFilterValues.includes("all");
+
+        // Filter original data based on location and timestamp
+        const filteredData = originalData.filter(d => {
+          const locationMatch = locationFilterValues.includes("all") || locationFilterValues.includes(d["state/uts"]);
+          const timestampMatch = !timestampFilterValue || formatDate(d.timestamp) === timestampFilterValue;
+          return locationMatch && timestampMatch;
+        });
+
+        // Build hierarchyData from filteredData and relationship types
+        const hierarchyData = buildHierarchyData(filteredData, relationshipFilterValues);
+
+        // Apply selectedCategories (from legend) filter
+        function filterCategories(node) {
+          if (!node.children) {
+            // Leaf node
+            return selectedCategories.includes(node.name);
+          } else {
+            node.children = node.children.filter(child => filterCategories(child));
+            return node.children.length > 0;
+          }
+        }
+
+        filterCategories(hierarchyData);
+
+        // Recompute values
+        function computeValues(node) {
+          if (node.children) {
+            node.value = node.children.reduce((sum, child) => {
+              computeValues(child);
+              return sum + (child.value || 0);
+            }, 0);
+          }
+          // If node has no children and no value, set value to 0
+          if (!node.value) {
+            node.value = 0;
+          }
+        }
+
+        computeValues(hierarchyData);
+
+        // Build the root and partition
+        root = partition(hierarchyData);
+        root.each(d => d.current = d);
+
+        // Update the sunburst chart
+        const nodes = root.descendants().filter(d => d.depth);
+
+        path = path.data(nodes, d => d.data.name);
+
+        path.exit().remove();
+
+        const pathEnter = path.enter().append("path")
+          .attr("fill", d => {
+            while (d.depth > 1) d = d.parent;
+            return color(d.data.name);
+          })
+          .attr("d", d => arc(d.current))
+          .on("mouseover", (event, d) => {
+            tooltip.style("opacity", 1)
+              .html(`
+                <strong>${d.ancestors().map(d => d.data.name).reverse().join(" > ")}</strong><br>
+                <strong>Value:</strong> ${format(d.value)}<br>
+                <strong>Percentage:</strong> ${((d.value / root.value) * 100).toFixed(2)}%<br>
+                <strong>Timestamp:</strong> ${d.data.timestamp ? formatDate(d.data.timestamp) : "No Timestamp Available"}
+              `)
+              .style("left", (event.pageX + 10) + "px")
+              .style("top", (event.pageY + 10) + "px");
+          })
+          .on("mouseout", () => {
+            tooltip.style("opacity", 0);
+          })
+          .on("click", clicked);
+
+        path = pathEnter.merge(path);
+
+        path.transition().duration(750)
+          .attrTween("d", d => () => arc(d.current))
+          .attr("fill-opacity", d => arcVisible(d.current) ? (d.children ? 0.6 : 0.4) : 0);
+
+        // Update labels
+        label = label.data(nodes, d => d.data.name)
+          .join(
+            enter => enter.append("text")
+              .attr("dy", "0.35em")
+              .attr("fill-opacity", d => +labelVisible(d.current))
+              .attr("transform", d => labelTransform(d.current))
+              .text(d => d.data.name),
+            update => update.transition().duration(750)
+              .attr("fill-opacity", d => +labelVisible(d.current))
+              .attr("transform", d => labelTransform(d.current)),
+            exit => exit.remove()
+          );
+
+        // Update the parent circle to be clickable
+        parent.datum(root);
+
+        // Update breadcrumbs
+        if (currentView) {
+          const breadcrumbPath = currentView.ancestors().reverse();
+          updateBreadcrumbs(breadcrumbPath);
+        } else {
+          updateBreadcrumbs([root]);
+        }
+      }
+
+      function buildHierarchyData(data, relationshipFilterValues) {
+        const includeAll = relationshipFilterValues.includes("all");
+        const hierarchyData = {
+          name: "India",
+          children: d3.groups(data, d => d["state/uts"]).map(([state, values]) => ({
+            name: state,
+            timestamp: values[0].timestamp,
+            children: [
+              (includeAll || relationshipFilterValues.includes("Diabetic TB Patients")) ? {
+                name: "Diabetic TB Patients",
+                value: d3.sum(values, d => +d["no_of_tb_-_diabetes-tb_patients_with_known_dm_status,_of_notified)-public"]),
+                timestamp: values[0].timestamp
+              } : null,
+              (includeAll || relationshipFilterValues.includes("Tobacco Affected TB Patients")) ? {
+                name: "Tobacco Affected TB Patients",
+                value: d3.sum(values, d => +d["no_of_tobacco_users_identified_amongst_screened,of_those_with_known_tobacco_usage_status)-total"]),
+                timestamp: values[0].timestamp
+              } : null,
+              (includeAll || relationshipFilterValues.includes("Alcohol Affected TB Patients")) ? {
+                name: "Alcohol Affected TB Patients",
+                value: d3.sum(values, d => +d["no_of_tb_-_alcohol-alcohol_users_identified_amongst_screened,__of_those_with_known_alcohol_usage_status)-total"]),
+                timestamp: values[0].timestamp
+              } : null
+            ].filter(d => d && d.value > 0)
+          })).filter(d => d.children.length > 0)
+        };
+
+        return hierarchyData;
+      }
+
+      function clicked(event, p) {
+        parent.datum(p.parent || root);
+        currentView = p;
+
+        root.each(d => d.target = {
+          x0: Math.max(0, Math.min(1, (d.x0 - p.x0) / (p.x1 - p.x0))) * 2 * Math.PI,
+          x1: Math.max(0, Math.min(1, (d.x1 - p.x0) / (p.x1 - p.x0))) * 2 * Math.PI,
+          y0: Math.max(0, d.y0 - p.depth),
+          y1: Math.max(0, d.y1 - p.depth)
+        });
+
+        const t = g.transition().duration(750);
+
+        // Transition the data on all arcs, even the ones that aren’t visible
+        path.transition(t)
+          .tween("data", d => {
+            const i = d3.interpolate(d.current, d.target);
+            return t => d.current = i(t);
+          })
+          .attr("fill-opacity", d => arcVisible(d.current) ? (d.children ? 0.6 : 0.4) : 0)
+          .attrTween("d", d => () => arc(d.current));
+
+        label.filter(function (d) { return labelVisible(d.current) || labelVisible(d.target); })
+          .transition(t)
+          .attr("fill-opacity", d => +labelVisible(d.current))
+          .attrTween("transform", d => () => labelTransform(d.current));
+
+        // Update breadcrumbs
+        const breadcrumbPath = p.ancestors().reverse();
+        updateBreadcrumbs(breadcrumbPath);
+
+        // Show back button if not at root
+        if (p !== root) {
+          d3.select("#back-button").style("display", "block");
+        } else {
+          d3.select("#back-button").style("display", "none");
+        }
+      }
+
+      function arcVisible(d) {
+        return d.y1 <= 3 && d.y0 >= 1 && d.x1 > d.x0;
+      }
+
+      function labelVisible(d) {
+        return d.y1 <= 3 && d.y0 >= 1 && (d.x1 - d.x0) > 0.03;
+      }
+
+      function labelTransform(d) {
+        const x = (d.x0 + d.x1) / 2 * 180 / Math.PI;
+        const y = (d.y0 + d.y1) / 2 * radius / root.height;
+        return `rotate(${x - 90}) translate(${y},0) rotate(${x < 180 ? 0 : 180})`;
+      }
+
+      function formatDate(timestamp) {
+        if (!timestamp) {
+          return "Invalid Date";
+        }
+
+        try {
+          const date = new Date(timestamp);
+
+          if (isNaN(date)) {
+            return "Invalid Date";
+          }
+
+          return date.toLocaleDateString('en-GB');
+        } catch (error) {
+          console.error("Error parsing date:", error);
+          return "Invalid Date";
+        }
+      }
+
+      function updateBreadcrumbs(path) {
+        const container = document.getElementById("breadcrumb");
+        container.innerHTML = "";
+
+        path.forEach((node, index) => {
+          const breadcrumbItem = document.createElement("span");
+          breadcrumbItem.textContent = node.data.name;
+          breadcrumbItem.dataset.id = node.data.name;
+
+          breadcrumbItem.addEventListener("click", () => {
+            const targetNode = root.descendants().find(d => d.data.name === node.data.name);
+
+            if (targetNode) {
+              clicked(null, targetNode);
+            }
+          });
+
+          container.appendChild(breadcrumbItem);
+
+          if (index < path.length - 1) {
+            const separator = document.createElement("span");
+            separator.textContent = " > ";
+            separator.classList.add("breadcrumb-separator");
+            container.appendChild(separator);
+          }
+        });
+      }
+
+      function saveGraphAsImage(targetId) {
+    const container = document.getElementById(targetId); // Get the container div
+    if (!container) {
+        console.error(`Container with ID "${targetId}" not found.`);
+        return;
+    }
+
+    const svgElement = container.querySelector("svg"); // Get the SVG inside the container
+    if (!svgElement) {
+        console.error(`SVG element not found inside container with ID "${targetId}".`);
+        return;
+    }
+
+    console.log("SVG Element:", svgElement);
+
+    const svgString = new XMLSerializer().serializeToString(svgElement);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+
+    const img = new Image();
+    img.onload = () => {
+        canvas.width = svgElement.clientWidth || 960; // Use default if dimensions are not set
+        canvas.height = svgElement.clientHeight || 500; // Use default if dimensions are not set
+        ctx.drawImage(img, 0, 0);
+
+        URL.revokeObjectURL(url);
+
+        // Create a download link
+        const link = document.createElement("a");
+        link.download = "graph.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+    };
+    img.src = url;
+}
+
+       // Show details function
+       function showDetails(d) {
+        if (d.data) {
+          detailsPanel.style("display", "block");
+          detailsContent.html(`
+            <b>Name:</b> ${d.data.name}<br>
+            <b>Value:</b> ${d.value || "N/A"}<br>
+            <b>Percentage:</b> ${((d.value / root.value) * 100).toFixed(2)}%
+          `);
+        } else {
+          detailsPanel.style("display", "none");
+        }
+      }
+
+     
+      // Implement zoom in and zoom out
+      const zoom = d3.zoom()
+        .scaleExtent([1, 10])
+        .on('zoom', (event) => {
+          g.attr('transform', event.transform);
+        });
+
+      svg.call(zoom);
+
+      d3.select("#zoom-in").on("click", () => {
+        svg.transition().call(zoom.scaleBy, 1.2);
+      });
+
+      d3.select("#zoom-out").on("click", () => {
+        svg.transition().call(zoom.scaleBy, 0.8);
+      });
+
+      // Implement reset zoom
+      d3.select("#reset-zoom").on("click", () => {
+        svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
+      });
+
+      // Implement reset highlight
+      d3.select("#reset-highlight").on("click", () => {
+        path.classed("highlighted", false)
+          .attr("fill-opacity", d => arcVisible(d.current) ? (d.children ? 0.6 : 0.4) : 0);
+      });
+
+      // Implement back button
+      d3.select("#back-button").on("click", () => {
+        clicked(null, root);
+        d3.select("#back-button").style("display", "none");
+      });
+
+      // Implement reset filters
+      d3.select("#reset-filters").on("click", () => {
+        // Reset filters to default values
+        d3.select("#relationship-filter").selectAll("option").property("selected", false);
+        d3.select("#relationship-filter").selectAll("option[value='all']").property("selected", true);
+
+        d3.select("#location-filter").selectAll("option").property("selected", false);
+        d3.select("#location-filter").selectAll("option[value='all']").property("selected", true);
+
+        d3.select("#timestamp-filter").property("value", "");
+        d3.select("#metric-filter").property("value", "value");
+        d3.select("#sort-by").property("value", "name");
+        selectedCategories = ["Diabetic TB Patients", "Tobacco Affected TB Patients", "Alcohol Affected TB Patients"];
+        d3.selectAll(".legend-item").style("opacity", 1);
+        updateChart();
+      });
+
+      // Implement sorting
+      d3.select("#sort-ascending").on("click", () => sortData(true));
+      d3.select("#sort-descending").on("click", () => sortData(false));
+
+      function sortData(ascending) {
+        const sortBy = d3.select("#sort-by").property("value");
+        root.sort((a, b) => {
+          if (sortBy === "name") {
+            return ascending ? a.data.name.localeCompare(b.data.name) : b.data.name.localeCompare(a.data.name);
+          } else if (sortBy === "value") {
+            return ascending ? a.value - b.value : b.value - a.value;
+          } else {
+            return 0;
+          }
+        });
+        updateChart();
+      }
+
+      // Implement search functionality
+      d3.select("#search-button").on("click", searchData);
+
+      function searchData() {
+        const searchTerm = d3.select("#search-box").property("value").toLowerCase();
+        const matchingNodes = root.descendants().filter(d => {
+          const fullName = d.ancestors().map(a => a.data.name).reverse().join(" > ").toLowerCase();
+          return fullName.includes(searchTerm);
+        });
+
+        // Highlight matching nodes
+        path.classed("highlighted", d => matchingNodes.includes(d))
+          .attr("fill-opacity", d => {
+            if (matchingNodes.includes(d)) {
+              return arcVisible(d.current) ? (d.children ? 0.6 : 0.4) : 0;
+            } else {
+              return 0.1;
+            }
+          });
+
+        // If there's a match, zoom to the first matching node
+        if (matchingNodes.length > 0) {
+          clicked(null, matchingNodes[0]);
+          d3.select("#back-button").style("display", "block");
+        }
+      }
+
+      // Implement filter change events
+      d3.select("#relationship-filter").on("change", updateChart);
+      d3.select("#location-filter").on("change", updateChart);
+      d3.select("#timestamp-filter").on("change", updateChart);
+      d3.select("#metric-filter").on("change", updateChart);
+      d3.select("#sort-by").on("change", updateChart);
+
+    });
+  </script>
+</body>
+
+</html>

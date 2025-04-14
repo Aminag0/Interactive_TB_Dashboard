@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hierarchical Tree Map for Entity Categorization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvg/dist/browser/canvg.min.js"></script>
+  
+  
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #cfd8e0;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            color: #07396e;
+            margin: 20px 0;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .filter-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 10px;
+            background: #c1cacb;
+            border: 1px solid #ddd;
+            width: 20%;
+        }
+
+        #chart-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 20px 0;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+ height: 100%;
+ padding: 15px;
+        }
+
+        #chart {
+            margin: 0 auto;
+            width: 100%;
+            height: 600px;
+        }
+
+        .legend {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 5px;
+            pointer-events: none;
+            font-size: 14px;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        /* Add this to your existing CSS */
+        .node rect.highlighted {
+            stroke: red !important; /* Ensure the red outline is applied */
+            stroke-width: 4px !important; /* Make the stroke width larger */
+        }
+
+        .node text.highlighted {
+            font-weight: bold; /* Make text bold when selected */
+        }
+        .details-panel {
+            background-color: #ffffff;
+            border: 2px solid #04172b;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px auto;
+            width: 400px;
+            box-shadow: 2px 2px 15px rgba(0, 0, 0, 0.1);
+            color: #333;
+        }
+
+        .details-panel h3 {
+            text-align: center;
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+        /* Reset Highlight Button Styles */
+        .reset-btn {
+          background-color: #4a7c83;
+          color: white;
+          border: none;
+          border-radius: 5px;
+          padding: 10px 15px;
+          font-size: 14px;
+          cursor: pointer;
+          margin-top: 20px;
+        }
+
+        .reset-btn:hover {
+          background-color: #071a2e;
+          transform: translateY(-2px);
+        }
+        /* Breadcrumb Container Styling */
+        #breadcrumb-container {
+            padding: 10px;
+            font-size: 16px;
+            color: #0a233e;
+            font-weight: bold;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            margin: 10px auto;
+            width: 80%;
+        }
+
+        /* Breadcrumb Separator Styling */
+        #breadcrumb-container span {
+            margin-right: 10px;
+        }
+
+        #breadcrumb-container span:after {
+            content: '>';
+            margin-left: 10px;
+        }
+        #breadcrumb-container span:last-child:after {
+            content: ''; /* Remove separator for the last element */
+        }
+        
+    </style>
+</head>
+<body>
+    <!--<h1>Hierarchical Tree Map for Entity Categorization</h1> -->
+    
+    <div class="container">
+                     
+        <div class="filter-container">
+            <label for="filter">Select Hierarchical Level: </label>
+            <select id="filter">
+                <option value="All">All</option>
+                <option value="Diabetes Patients">Diabetes Patients</option>
+                <option value="Alcohol Users">Alcohol Users</option>
+                <option value="Tobacco Users">Tobacco Users</option>
+            </select>
+            
+            <!-- Added: Sort Order Selection -->
+            <label for="sort-order">Sort Order:</label>
+            <select id="sort-order">
+                <option value="descending">Descending</option>
+                <option value="ascending">Ascending</option>
+            </select>
+            <!-- End of Added -->
+
+            <div id="legend" class="legend"></div>
+            <div id="search-container" style="margin: 20px;">
+                <input type="text" id="state-search" placeholder="Search for a state" style="padding: 5px; width: 200px;">
+                <button id="search-btn" style="padding: 5px; margin-left: 10px;">Search</button>
+            </div>
+            <button id="reset-zoom-button"class='reset-btn'>Reset Zoom</button>
+            <!-- Reset Highlight Button -->
+            <button id="reset-highlight-btn" class="reset-btn">Reset Highlight</button> 
+            <!-- Search Input and Button -->
+
+
+             <!-- Breadcrumb Container -->
+             <div id="breadcrumb-container">
+                <span id="breadcrumb">Select a node to view details</span>
+            </div>
+
+        </div>
+        <div id="chart-container">
+            <svg id="chart"></svg>
+            <button class="save-graph-button" data-target="chart">Save Treemap as Image</button>
+
+        </div>
+    </div>
+    <div id="details-panel" class="details-panel" style="display: none;">
+        <h3>Node Details</h3>
+        <p id="details-content">Click a node to view details.</p>
+    </div>
+    
+    <script>
+        // Restore highlighted states from local storage on page load
+        document.addEventListener("DOMContentLoaded", function() {
+            const savedStates = JSON.parse(localStorage.getItem('highlightedStates'));
+            if (savedStates && Array.isArray(savedStates)) {
+                // Populate the highlightedStates set
+                highlightedStates = new Set(savedStates);
+
+                // Reapply highlights to all maps
+                highlightStateAcrossAllMaps();
+            }
+        });
+
+        // Global variable to track highlighted states
+        let highlightedStates = new Set(); // Using a Set to avoid duplicates
+
+        const width = 1200;
+        const height = 600;
+    
+        // Move svgContainer and zoom outside of d3.csv()
+        const svgContainer = d3.select("#chart")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        const svg = svgContainer
+            .append("g") // Create a group for zoomable content
+            .attr("class", "zoom-container");
+
+        // Define zoom behavior (only once)
+        const zoom = d3.zoom()
+            .scaleExtent([0.5, 5]) // Allow zoom levels from 50% to 500%
+            .on("zoom", (event) => {
+                svg.attr("transform", event.transform); // Apply zoom transformation to the <g> group
+            });
+
+        // Apply the zoom behavior to the SVG container
+        svgContainer.call(zoom);
+
+        function resetZoom() {
+            svgContainer.transition()
+                .duration(750)
+                .call(zoom.transform, d3.zoomIdentity); // Reset to zoom identity (no zoom or translation)
+        }
+        
+
+        // Attach event listener to the reset zoom button
+        document.getElementById("reset-zoom-button").addEventListener("click", resetZoom);
+
+        const regionMapping = {
+            North: ["Delhi", "Punjab", "Haryana", "Uttarakhand", "Jammu & Kashmir", "Himachal Pradesh", "Chandigarh"],
+            South: ["Kerala", "Karnataka", "Tamil Nadu", "Andhra Pradesh", "Telangana", "Puducherry"],
+            East: ["West Bengal", "Odisha", "Bihar", "Jharkhand", "Sikkim"],
+            West: ["Rajasthan", "Gujarat", "Maharashtra", "Goa", "Dadra & Nagar Haveli and Daman & Diu"],
+            Central: ["Madhya Pradesh", "Chhattisgarh", "Uttar Pradesh"],
+            Northeast: ["Assam", "Meghalaya", "Nagaland", "Manipur", "Tripura", "Arunachal Pradesh", "Mizoram"]
+        };
+
+        const regionColors = {
+            North: "#F28E8E",
+            South: "#A4D4F2",
+            East: "#A9F2B3",
+            West: "#FFD580",
+            Central: "#D5A6FF",
+            Northeast: "#FFA07A"
+        };
+
+        const categoryColors = {
+            "Diabetes Patients": "#73c6b6",
+            "Alcohol Users": "#85929e",
+            "Tobacco Users": "#cd6155"
+        };
+
+        // Added: Global variable for sort order
+        let currentSortOrder = "descending"; // Default sort order
+        // End of Added
+
+        d3.csv("India_Filled_Extended_With_Timestamp.csv").then(data => {
+            function prepareData(columnMappings, useCategoryColors = false, sortOrder = "descending") { // Modified to include sortOrder
+                const diabetesCategory = "Diabetes Patients";
+                const alcoholCategory = "Alcohol Users";
+                const tobaccoCategory = "Tobacco Users";
+
+                const topN = 10; // Limit to top 10 values
+                const normalizationFactor = 0.4; // Scaling factor for Diabetes Patients
+
+                return Object.keys(regionMapping).map(region => {
+                    const seenStates = new Set(); // Track already processed states to avoid duplicates
+
+                    const regionChildren = data
+                        .filter(row => regionMapping[region].includes(row["state/uts"].trim())) // Match state to region
+                        .map(row => {
+                            return columnMappings.map(mapping => {
+                                const stateName = row["state/uts"].trim();
+                                let value = parseFloat(row[mapping.column]) || 0;
+
+                                // Skip duplicates or zero-value entries
+                                if (seenStates.has(stateName) || value <= 0) return null;
+
+                                seenStates.add(stateName); // Mark state as processed
+                                return {
+                                    name: stateName,
+                                    value: value,
+                                    color: useCategoryColors ? categoryColors[mapping.category] : null,
+                                    category: mapping.category,
+                                };
+                            }).filter(d => d !== null); // Filter out null entries
+                        })
+                        .flat(); // Flatten the array of arrays
+
+                    // Define sort function based on sortOrder
+                    const sortFunction = sortOrder === "ascending" 
+                        ? (a, b) => a.value - b.value 
+                        : (a, b) => b.value - a.value;
+
+                    // Handle Diabetes Patients with normalization
+                    const diabetesChildren = regionChildren.filter(child => child.category === diabetesCategory)
+                        .sort(sortFunction) // Use dynamic sort order
+                        .slice(0, topN) // Limit to top N values
+                        .map(child => {
+                            // Normalize the value for Diabetes Patients
+                            child.value = child.value * normalizationFactor;
+                            return child;
+                        });
+
+                    // Handle Alcohol and Tobacco Users without normalization
+                    const alcoholChildren = regionChildren.filter(child => child.category === alcoholCategory)
+                        .sort(sortFunction) // Use dynamic sort order
+                        .slice(0, topN); // Limit to top N values
+
+                    const tobaccoChildren = regionChildren.filter(child => child.category === tobaccoCategory)
+                        .sort(sortFunction) // Use dynamic sort order
+                        .slice(0, topN); // Limit to top N values
+
+                    // Combine all filtered categories
+                    const finalChildren = [...diabetesChildren, ...alcoholChildren, ...tobaccoChildren];
+
+                    // Include only regions with children
+                    return finalChildren.length > 0
+                        ? {
+                            name: region,
+                            color: useCategoryColors ? null : regionColors[region],
+                            children: finalChildren,
+                        }
+                        : null;
+                }).filter(region => region !== null); // Filter out null regions
+            }
+
+            const columnMappings = {
+                "Diabetes Patients": [{
+                    column: "no_of_tb_-_diabetes-tb_patients_with_known_dm_status,of_notified)-total",
+                    category: "Diabetes Patients"
+                }],
+                "Alcohol Users": [{
+                    column: "no_of_tb_-_alcohol-alcohol_users_identified_amongst_screened,__of_those_with_known_alcohol_usage_status)-total",
+                    category: "Alcohol Users"
+                }],
+                "Tobacco Users": [{
+                    column: "no_of_tobacco_users_identified_amongst_screened,of_those_with_known_tobacco_usage_status)-total",
+                    category: "Tobacco Users"
+                }],
+                "All": [
+                    {
+                        column: "no_of_tb_-_diabetes-tb_patients_with_known_dm_status,of_notified)-total",
+                        category: "Diabetes Patients"
+                    },
+                    {
+                        column: "no_of_tb_-_alcohol-alcohol_users_identified_amongst_screened,__of_those_with_known_alcohol_usage_status)-total",
+                        category: "Alcohol Users"
+                    },
+                    {
+                        column: "no_of_tobacco_users_identified_amongst_screened,of_those_with_known_tobacco_usage_status)-total",
+                        category: "Tobacco Users"
+                    }
+                ]
+            };
+
+            let currentRoot = { name: "Regions", children: prepareData(columnMappings["All"], true, currentSortOrder) }; // Modified to include sortOrder
+            
+            const treemap = d3.treemap()
+                .size([width, height])
+                .paddingInner(4) // Increase this value for more space within regions
+                .paddingOuter(6) // Increase this value for more space around the edges of the treemap
+                .round(true);
+
+            const tooltip = d3.select("body").append("div").attr("class", "tooltip").style("opacity", 0);
+
+            function updateLegend(selectedCategory) {
+                const legendContainer = d3.select("#legend");
+                legendContainer.html("");
+                const colors = selectedCategory === "All" ? categoryColors : regionColors;
+
+                Object.keys(colors).forEach(key => {
+                    const item = legendContainer.append("div").attr("class", "legend-item");
+                    item.append("div").attr("class", "legend-color").style("background", colors[key]);
+                    item.append("span").text(key);
+                });
+            }
+
+            function update(root, selectedCategory, sortOrder) { // Modified to include sortOrder
+                if (!root.children || root.children.length === 0) {
+                    console.error("No data available for the selected category:", selectedCategory);
+                    svg.selectAll("*").remove(); // Clear the treemap
+                    return;
+                }
+
+                svg.selectAll("*").remove(); // Clear previous elements
+
+                const hierarchy = d3.hierarchy(root).sum(d => d.value);
+                treemap(hierarchy);
+
+                const nodes = svg.selectAll(".node").data(hierarchy.leaves());
+                nodes.exit().remove();
+
+                const enterNodes = nodes.enter()
+                    .append("g")
+                    .attr("class", "node")
+                    .attr("transform", d => `translate(${d.x0},${d.y0})`); // Fixed template literal
+
+                enterNodes.append("rect")
+                    .attr("width", d => d.x1 - d.x0)
+                    .attr("height", d => d.y1 - d.y0)
+                    .attr("fill", d => {
+                        if (selectedCategory === "All") {
+                            return categoryColors[d.data.category]; // Category-based colors for "All"
+                        } else {
+                            return regionColors[d.parent.data.name]; // Region-based colors for specific categories
+                        }
+                    })
+                    .attr("stroke", "#fff")
+                    .on("mouseover", (event, d) => {
+                        d3.select(event.target)
+                            .attr("stroke", "black") // Add black border on hover
+                            .attr("stroke-width", 2);
+
+                        tooltip.transition().duration(200).style("opacity", 1);
+                        tooltip.html(
+                            `<strong>Region:</strong> ${d.parent.data.name}<br>
+                            <strong>State:</strong> ${d.data.name}<br>
+                            <strong>Value:</strong> ${d.data.value}<br>
+                            <strong>Category:</strong> ${d.data.category}`
+                        ) // Fixed template literal
+                            .style("left", `${event.pageX + 10}px`)
+                            .style("top", `${event.pageY + 10}px`);
+                    })
+                    .on("mouseout", (event, d) => {
+                        d3.select(event.target)
+                            .attr("stroke", "#fff") // Reset border
+                            .attr("stroke-width", 1);
+
+                        tooltip.transition().duration(500).style("opacity", 0);
+                    });
+                
+                // Ensure the following line is correctly formatted
+                svg.selectAll(".node rect")
+                svg.selectAll(".node rect")
+                    .on("click", function(event, d) {
+                        const state = d.data.name;
+
+                        // Toggle highlight for the clicked state
+                        if (highlightedStates.has(state)) {
+                            // If already highlighted, remove from the global set and unhighlight
+                            highlightedStates.delete(state);
+                            d3.select(this).classed("highlighted", false)
+                                .attr("stroke", "#fff")
+                                .attr("stroke-width", 1); // Reset border
+                        } else {
+                            // Add to the global set and highlight
+                            highlightedStates.add(state);
+                            d3.select(this).classed("highlighted", true)
+                                .attr("stroke", "red")
+                                .attr("stroke-width", 4); // Increase stroke width
+                        }
+                        // Save updated highlightedStates to local storage
+                        localStorage.setItem('highlightedStates', JSON.stringify([...highlightedStates]));
+
+
+                        // Highlight the state across all maps
+                        highlightStateAcrossAllMaps();
+
+                        // Update the details panel and breadcrumb
+                        showDetails(d);
+                        updateBreadcrumb(d);
+                    });
+
+                enterNodes.append("text")
+                    .attr("x", 5)
+                    .attr("y", 14)
+                    .text(d => {
+                        const text = d.data.name;
+                        const rectWidth = d.x1 - d.x0;
+                        return rectWidth > 50 ? text : "";
+                    })
+                    .style("font-size", d => {
+                        const rectWidth = d.x1 - d.x0;
+                        const rectHeight = d.y1 - d.y0;
+                        return Math.min(rectWidth / 8, rectHeight / 2, 12) + "px";
+                    })
+                    .style("fill", "#333")
+                    .style("pointer-events", "none");
+            }
+
+            // Show details for the selected node
+            function showDetails(node) {
+                // Get region based on state/UT
+                const regionMapping = {
+                    North: ["Delhi", "Punjab", "Haryana", "Uttarakhand", "Jammu & Kashmir", "Himachal Pradesh", "Chandigarh"],
+                    South: ["Kerala", "Karnataka", "Tamil Nadu", "Andhra Pradesh", "Telangana", "Puducherry"],
+                    East: ["West Bengal", "Odisha", "Bihar", "Jharkhand", "Sikkim"],
+                    West: ["Rajasthan", "Gujarat", "Maharashtra", "Goa", "Dadra & Nagar Haveli and Daman & Diu"],
+                    Central: ["Madhya Pradesh", "Chhattisgarh", "Uttar Pradesh"],
+                    Northeast: ["Assam", "Meghalaya", "Nagaland", "Manipur", "Tripura", "Arunachal Pradesh", "Mizoram"],
+                };
+
+                let region = "Unknown Region";
+                for (const [key, states] of Object.entries(regionMapping)) {
+                    if (states.includes(node.data.name)) {
+                        region = key;
+                        break;
+                    }
+                }
+
+                // Show the details in the panel
+                const detailsPanel = d3.select("#details-panel");
+                const detailsContent = d3.select("#details-content");
+                // Display the details of the node
+                detailsPanel.style("display", "block");
+                detailsContent.html(
+                    `<b>State/UT:</b> ${node.data.name}<br>
+                    <b>Region:</b> ${region}<br>
+                    <b>Category:</b> ${node.data.category}<br>
+                    <b>Value:</b> ${node.data.value}<br>`
+                ); // Fixed template literal
+            }
+
+            // Hide details when no node is selected or when clicked again
+            function hideDetails() {
+                d3.select("#details-panel").style("display", "none");
+                d3.select("#details-content").html("Click a node to view details.");
+            }
+
+            d3.select("#filter").on("change", function () {
+                const selectedCategory = this.value;
+
+                currentRoot = {
+                    name: "Regions",
+                    children: prepareData(columnMappings[selectedCategory], selectedCategory === "All", currentSortOrder) // Modified to include sortOrder
+                };
+
+                updateLegend(selectedCategory);
+                update(currentRoot, selectedCategory, currentSortOrder); // Modified to include sortOrder
+                // Reapply highlights from global state
+                highlightStateAcrossAllMaps();
+            });
+
+            // Added: Event listener for sort order change
+            d3.select("#sort-order").on("change", function () {
+                currentSortOrder = this.value; // Update the global sort order
+
+                // Re-prepare the data with the new sort order based on current filter
+                const selectedCategory = d3.select("#filter").property("value");
+                currentRoot = {
+                    name: "Regions",
+                    children: prepareData(columnMappings[selectedCategory], selectedCategory === "All", currentSortOrder)
+                };
+
+                // Update the treemap with the new sort order
+                update(currentRoot, selectedCategory, currentSortOrder);
+
+                // Reapply highlights from global state
+                highlightStateAcrossAllMaps();
+            });
+            // End of Added
+
+            // Initial render
+            updateLegend("All");
+            update(currentRoot, "All", currentSortOrder); // Modified to include sortOrder
+            console.log("Region Mapping:", regionMapping);
+                console.log("Column Mappings:", columnMappings);
+
+                const diabetesData = prepareData(columnMappings["Diabetes Patients"], true, currentSortOrder); // Modified to include sortOrder
+                console.log("Processed Data for Diabetes Patients:", diabetesData);
+
+                const alcoholData = prepareData(columnMappings["Alcohol Users"], true, currentSortOrder); // Modified to include sortOrder
+                console.log("Processed Data for Alcohol Users:", alcoholData);
+
+        });
+        function saveGraphAsImage(targetId) {
+            const svgElement = document.getElementById(targetId); // Get the SVG element
+            if (!svgElement) {
+                console.error(`SVG element with ID "${targetId}" not found.`); // Fixed template literal
+                return;
+            }
+
+            // Create a canvas element
+            const canvas = document.createElement("canvas");
+            const boundingRect = svgElement.getBoundingClientRect();
+            canvas.width = boundingRect.width;
+            canvas.height = boundingRect.height;
+
+            // Render the SVG onto the canvas using Canvg
+            const ctx = canvas.getContext("2d");
+            const svgData = new XMLSerializer().serializeToString(svgElement);
+
+            // Check if Canvg is loaded and render
+            if (window.canvg) {
+                window.canvg(canvas, svgData); // Render the SVG to the canvas
+
+                // Convert the canvas to an image
+                const imgData = canvas.toDataURL("image/png");
+
+                // Create a download link
+                const downloadLink = document.createElement("a");
+                downloadLink.href = imgData;
+                downloadLink.download = `${targetId}-treemap.png`; // File name for the image
+                downloadLink.click(); // Trigger the download
+            } else {
+                console.error("Canvg is not loaded. Ensure the script is properly linked.");
+            }
+        }
+
+        // Attach event listener to the button
+        document.querySelectorAll(".save-graph-button").forEach(button => {
+            button.addEventListener("click", function () {
+                const targetId = this.getAttribute("data-target"); // Get the target graph ID from the data attribute
+                saveGraphAsImage(targetId);
+            });
+        });
+        // Add event listener to reset highlight button
+        d3.select("#reset-highlight-btn").on("click", () => {
+            resetHighlight(); // Call function to reset the highlight and hide details
+        });
+
+        function resetHighlight() {
+            // Clear the highlighted states set
+            highlightedStates.clear();
+
+            // Remove highlights from all nodes
+            svg.selectAll(".node rect")
+                .classed("highlighted", false)
+                .attr("stroke", "#fff")
+                .attr("stroke-width", 1);
+
+            // Hide the details panel and reset its content
+            d3.select("#details-panel").style("display", "none");
+            d3.select("#details-content").html("Click a node to view details.");
+
+            // Reset the breadcrumb
+            d3.select("#breadcrumb").text("Select a node to view details");
+            // Remove saved states from local storage
+            localStorage.removeItem('highlightedStates');
+        }
+
+        // Function to update the breadcrumb trail
+        function updateBreadcrumb(node) {
+            const breadcrumb = d3.select("#breadcrumb");
+
+            // Define regions for node classification
+            const regionMapping = {
+                North: ["Delhi", "Punjab", "Haryana", "Uttarakhand", "Jammu & Kashmir", "Himachal Pradesh", "Chandigarh"],
+                South: ["Kerala", "Karnataka", "Tamil Nadu", "Andhra Pradesh", "Telangana", "Puducherry"],
+                East: ["West Bengal", "Odisha", "Bihar", "Jharkhand", "Sikkim"],
+                West: ["Rajasthan", "Gujarat", "Maharashtra", "Goa", "Dadra & Nagar Haveli and Daman & Diu"],
+                Central: ["Madhya Pradesh", "Chhattisgarh", "Uttar Pradesh"],
+                Northeast: ["Assam", "Meghalaya", "Nagaland", "Manipur", "Tripura", "Arunachal Pradesh", "Mizoram"]
+            };
+
+            let region = "Unknown Region";
+            for (const [key, states] of Object.entries(regionMapping)) {
+                if (states.includes(node.data.name)) {
+                    region = key;
+                    break;
+                }
+            }
+
+            const breadcrumbPath = `${node.data.category} > ${region} > ${node.data.name}`; // Fixed template literal
+            breadcrumb.text(breadcrumbPath);
+        }
+
+        d3.select("#search-btn").on("click", () => {
+            const searchQuery = d3.select("#state-search").property("value").trim();
+
+            if (!searchQuery) return;
+
+            // Add the search query to the highlighted states set
+            highlightedStates.add(searchQuery);
+
+            // Highlight the state across all maps
+            highlightStateAcrossAllMaps();
+        });
+
+        // Function to highlight state across all tree maps
+        function highlightStateAcrossAllTreeMaps(state) {
+            let found = false;
+
+            // Loop through each tree map and highlight nodes
+            svg.each(function() {  // Loop through each individual tree map (SVG)
+                const treeMap = d3.select(this);
+
+                // Find nodes that match the state name
+                treeMap.selectAll(".node rect")
+                    .classed("highlighted", false)  // Remove any previous highlights
+                    .attr("stroke", "#fff")         // Reset stroke to white
+                    .attr("stroke-width", 1);       // Reset stroke width
+
+                const matchingNode = treeMap.selectAll(".node")
+                    .filter(function(d) {
+                        return d.data.name.toLowerCase() === state.toLowerCase();
+                    });
+
+                // If a matching node is found, highlight it
+                if (!matchingNode.empty()) {
+                    found = true;
+                    matchingNode.select("rect")
+                        .classed("highlighted", true)   // Highlight the node
+                        .attr("stroke", "red")          // Outline in red
+                        .attr("stroke-width", 4);       // Increase stroke width
+
+                    // Show details for the matched node
+                    matchingNode.each(function(d) {
+                        showDetails(d);
+                        updateBreadcrumb(d);
+                    });
+                }
+            });
+
+            // If no node is found, alert the user
+            if (!found) {
+                alert("No matching state found in the tree maps.");
+            }
+        }
+        // Function to highlight all states in the global highlightedStates set
+        function highlightStateAcrossAllMaps() {
+            svg.each(function() {
+                const treeMap = d3.select(this);
+
+                // Loop through highlighted states and apply highlights
+                highlightedStates.forEach(state => {
+                    treeMap.selectAll(".node")
+                        .filter(function(d) {
+                            return d.data.name.toLowerCase() === state.toLowerCase();
+                        })
+                        .select("rect")
+                        .classed("highlighted", true)
+                        .attr("stroke", "red")
+                        .attr("stroke-width", 4);
+                });
+            });
+        }
+
+    </script>
+</body>
+</html>
